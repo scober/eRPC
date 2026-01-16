@@ -36,8 +36,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -Wall -Wextra -
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wsign-conversion -Wold-style-cast -Wno-unused-function")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nested-anon-types -Wno-keyword-macro -Wno-deprecated-declarations")
 
-include_directories(${CMAKE_SOURCE_DIR}/src)
-include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/third_party)
+include_directories(${PROJECT_SOURCE_DIR}/src)
+include_directories(SYSTEM ${PROJECT_SOURCE_DIR}/third_party)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
@@ -195,7 +195,7 @@ endif()
 
 # Generate config.h
 configure_file(src/config.h.in src/config.h)
-include_directories(${CMAKE_BINARY_DIR}/src)
+include_directories(${PROJECT_BINARY_DIR}/src)
 
 # libpmem is installable from package managers in only recent distros. If it's
 # not present, don't link it in.
@@ -321,6 +321,10 @@ endif()
 
 # Compile the library
 add_library(erpc ${SOURCES})
+target_include_directories(erpc PUBLIC
+                                ${PROJECT_SOURCE_DIR}/src
+                                ${PROJECT_BINARY_DIR}/src)
+target_include_directories(erpc PUBLIC SYSTEM third_party/asio/include)
 
 if(DPDK_NEEDED STREQUAL "true")
   if (NOT WIN32)
