@@ -25,17 +25,6 @@ else(PERF)
   endif()
 endif(PERF)
 
-# Common sub-projects: HdrHistogram
-set(HDR_HISTOGRAM_BUILD_PROGRAMS OFF CACHE BOOL "Minimize HDR histogram build")
-set(HDR_LOG_REQUIRED OFF CACHE BOOL "Disable HDR histogram's log to avoid zlib dependency")
-add_subdirectory(third_party/HdrHistogram_c)
-
-# Common sub-projects: gtest
-set(INSTALL_GTEST OFF)
-add_subdirectory(third_party/googletest)
-enable_testing()
-include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
-
 # Common sub-projects: gflags
 add_subdirectory(third_party/gflags)
 
@@ -208,22 +197,6 @@ endif()
 configure_file(src/config.h.in src/config.h)
 include_directories(${CMAKE_BINARY_DIR}/src)
 
-# MICA sources
-set(MICA_SOURCES
-  mica/src/mica/util/cityhash/city_mod.cc
-  mica/src/mica/util/config.cc)
-
-# The app to compile. Only one app is compiled to reduce compile time.
-if(EXISTS "${CMAKE_SOURCE_DIR}/scripts/autorun_app_file")
-  file(STRINGS "scripts/autorun_app_file" APP)
-else()
-  message(STATUS "No autorun_app_file found. No application will be compiled.")
-  return()
-endif()
-message(STATUS "Compiling app = " ${APP})
-
-# Add app-specific defines now, isolating them from the library and tests
-
 # libpmem is installable from package managers in only recent distros. If it's
 # not present, don't link it in.
 find_library(PMEM_LIB pmem)
@@ -232,41 +205,6 @@ if(NOT PMEM_LIB)
   set(PMEM "")
 else()
   set(PMEM "pmem")
-endif()
-
-if(APP STREQUAL "smr")
-  include_directories(mica/src)
-  add_subdirectory(${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft)
-  include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft/include)
-  if (WIN32)
-    link_directories(${CMAKE_SOURCE_DIR}/build)
-    set(LIBRARIES ${LIBRARIES} raft.lib)
-  else()
-    link_directories(${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft)
-    set(LIBRARIES ${LIBRARIES} raft ${PMEM})
-  endif()
-elseif(APP STREQUAL "masstree_analytics")
-  # CMake-based Masstree library from anujkaliaiitd/masstree-beta
-  link_directories(${CMAKE_SOURCE_DIR}/third_party/masstree-beta)
-  include_directories(SYSTEM ${CMAKE_SOURCE_DIR}/third_party/masstree-beta)
-  add_definitions(-include ${CMAKE_SOURCE_DIR}/third_party/masstree-beta/config.h)
-  set(APP_ADDITIONAL_SOURCES
-    apps/masstree_analytics/mt_index_api.cc
-    mica/src/mica/util/cityhash/city_mod.cc)
-  set(LIBRARIES ${LIBRARIES} masstree)
-  include_directories(mica/src)
-elseif(APP STREQUAL "mica_test")
-  include_directories(mica/src)
-  set(APP_ADDITIONAL_SOURCES ${MICA_SOURCES})
-elseif(APP STREQUAL "pmem_bw")
-  set(LIBRARIES ${LIBRARIES} ${PMEM})
-  message(STATUS "DPDK is needed for pmem_bw application")
-  add_definitions(-fpermissive)
-  set(DPDK_NEEDED "true")
-elseif(APP STREQUAL "persistent_kv")
-  set(LIBRARIES ${LIBRARIES} ${PMEM} cityhash)
-elseif(APP STREQUAL "log")
-  set(LIBRARIES ${LIBRARIES} ${PMEM})
 endif()
 
 if(DPDK_NEEDED STREQUAL "true")
@@ -376,7 +314,7 @@ else()
   message(STATUS "DPDK not needed to build eRPC")
 endif()
 
-set(LIBRARIES ${LIBRARIES} gflags hdr_histogram_static)
+set(LIBRARIES ${LIBRARIES} gflags)
 if(NOT WIN32)
   set(LIBRARIES ${LIBRARIES} rt numa pthread)
 endif()
@@ -393,106 +331,4 @@ if(DPDK_NEEDED STREQUAL "true")
       src/transport_impl/dpdk/dpdk_init.cc)
     target_link_libraries(erpc_dpdk_daemon ${LIBRARIES})
   endif()
-endif()
-
-# Using link-time optimization sometimes requires building with sources instead
-# of liberpc. See the hello world example's Makefile for an example of
-# compiling with liberpc.
-add_executable(${APP} apps/${APP}/${APP}.cc ${APP_ADDITIONAL_SOURCES} ${SOURCES})
-
-if(PERF)
-  target_compile_options(${APP} PRIVATE "-flto")
-endif()
-target_link_libraries(${APP} ${LIBRARIES})
-
-# Compile hello_world apps
-add_executable(hello_server hello_world/server.cc)
-target_link_libraries(hello_server erpc ${LIBRARIES})
-add_executable(hello_client hello_world/client.cc)
-target_link_libraries(hello_client erpc ${LIBRARIES})
-
-# Compile the tests
-if(TESTING)
-  set(LIBRARIES ${LIBRARIES} gtest)
-
-  # End-to-end tests with an RPC server and client
-  set(CLIENT_TESTS
-    create_session_test
-    destroy_session_test
-    small_msg_test
-    large_msg_test
-    req_in_cont_func_test
-    req_in_req_func_test
-    packet_loss_test
-    #server_failure_test
-    multi_process_test)
-  foreach(test_name IN LISTS CLIENT_TESTS)
-    add_executable(${test_name} tests/client_tests/${test_name}.cc)
-    target_link_libraries(${test_name} erpc ${LIBRARIES})
-    add_test(NAME ${test_name} COMMAND ${test_name})
-  endforeach()
-
-  # Tests for internal eRPC protocol implementation
-  set(PROTOCOL_TESTS
-    rpc_sm_test
-    rpc_list_test
-    rpc_req_test
-    rpc_resp_test
-    rpc_cr_test
-    rpc_rfr_test
-    rpc_kick_test)
-  foreach(test_name IN LISTS PROTOCOL_TESTS)
-    add_executable(${test_name} tests/protocol_tests/${test_name}.cc)
-    target_link_libraries(${test_name} erpc ${LIBRARIES})
-    add_test(NAME ${test_name} COMMAND ${test_name})
-  endforeach()
-
-  # Tests for the transport backend implementation
-  if(TRANSPORT STREQUAL "raw")
-    set(TRANSPORT_TESTS
-      raw_transport_test)
-  endif()
-  if(TRANSPORT STREQUAL "dpdk")
-    set(TRANSPORT_TESTS
-      dpdk_ownership_memzone_test)
-  endif()
-
-  foreach(test_name IN LISTS TRANSPORT_TESTS)
-    add_executable(${test_name} tests/transport_tests/${test_name}.cc)
-    target_link_libraries(${test_name} erpc ${LIBRARIES})
-    add_test(NAME ${test_name} COMMAND ${test_name})
-  endforeach()
-
-  # Utils that depend on liberpc. These tests are not run using ctest.
-  set(UTIL_TESTS_DEP
-    huge_alloc_test
-    timing_wheel_test)
-
-  foreach(test_name IN LISTS UTIL_TESTS_DEP)
-    add_executable(${test_name} tests/util_tests/${test_name}.cc)
-    target_link_libraries(${test_name} erpc ${LIBRARIES})
-  endforeach()
-
-  # Utils that don't depend on liberpc. These tests are not run using ctest.
-  set(UTIL_TESTS_INDEP
-    heartbeat_mgr_test
-    rand_test
-    misc_test
-    fixed_vector_test
-    timely_test
-    numautil_test
-    hdr_histogram_test
-    udp_client_test
-    udp_server_test)
-
-  # Non-Windows tests
-  if (NOT WIN32)
-    set(UTIL_TESTS_INDEP ${UTIL_TESTS_INDEP}
-      hugepage_caching_virt2phy_test)
-  endif()
-
-  foreach(test_name IN LISTS UTIL_TESTS_INDEP)
-    add_executable(${test_name} tests/util_tests/${test_name}.cc)
-    target_link_libraries(${test_name} erpc ${LIBRARIES})
-  endforeach()
 endif()
