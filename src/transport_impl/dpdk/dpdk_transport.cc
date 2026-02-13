@@ -197,7 +197,9 @@ void DpdkTransport::resolve_phy_port() {
   // in secondary DPDK processes (up to DPDK 21.05).
   struct rte_eth_link link;
   if (dpdk_proc_type_ == DpdkProcType::kPrimary) {
-    rte_eth_link_get(static_cast<uint8_t>(phy_port_), &link);
+    int link_get_ret = rte_eth_link_get(static_cast<uint8_t>(phy_port_), &link);
+    rt_assert(link_get_ret == 0,
+              "Bad DPDK link get with code " + std::to_string(link_get_ret));
     rt_assert(link.link_status == RTE_ETH_LINK_UP,
               "Port " + std::to_string(phy_port_) + " is down.");
   } else {
