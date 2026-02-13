@@ -175,7 +175,9 @@ void DpdkTransport::resolve_phy_port() {
 
   // Resolve RSS indirection table size
   struct rte_eth_dev_info dev_info;
-  rte_eth_dev_info_get(phy_port_, &dev_info);
+  int dev_info_get_ret = rte_eth_dev_info_get(phy_port_, &dev_info);
+  rt_assert(dev_info_get_ret == 0,
+            "Bad devinfo get with code " + std::to_string(dev_info_get_ret));
 
   const std::string drv_name = dev_info.driver_name;
   rt_assert(drv_name == "net_mlx4" or drv_name == "net_mlx5" or
