@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
   // Check if the link is up
   struct rte_eth_link link;
   rte_eth_link_get(static_cast<uint8_t>(FLAGS_phy_port), &link);
-  if (link.link_status != ETH_LINK_UP) {
+  if (link.link_status != RTE_ETH_LINK_UP) {
     fprintf(stderr, "eRPC DPDK daemon: Error: Port %zu link is down\n",
             FLAGS_phy_port);
     exit(-1);

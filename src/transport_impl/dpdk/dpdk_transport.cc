@@ -198,7 +198,7 @@ void DpdkTransport::resolve_phy_port() {
   struct rte_eth_link link;
   if (dpdk_proc_type_ == DpdkProcType::kPrimary) {
     rte_eth_link_get(static_cast<uint8_t>(phy_port_), &link);
-    rt_assert(link.link_status == ETH_LINK_UP,
+    rt_assert(link.link_status == RTE_ETH_LINK_UP,
               "Port " + std::to_string(phy_port_) + " is down.");
   } else {
     link = g_memzone->link_[phy_port_];
