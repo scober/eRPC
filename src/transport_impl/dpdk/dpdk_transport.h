@@ -79,8 +79,7 @@ class DpdkTransport : public Transport {
         for (size_t i = 0; i < kMaxQueuesPerPort; i++) {
           auto &owner = owner_[phy_port][i];
           if (owner.pid_ != 0) {
-            ret << "[QP #" << i << ", "
-                << "PID " << owner.pid_ << "] ";
+            ret << "[QP #" << i << ", " << "PID " << owner.pid_ << "] ";
           }
         }
         ret << "]";
@@ -204,7 +203,7 @@ class DpdkTransport : public Transport {
   static constexpr size_t kNumMbufs = (kNumRxRingEntries * 2 - 1);
 
   // XXX: ixgbe does not support fast free offload, but i40e does
-  static constexpr uint32_t kOffloads = RTE_ETH_TX_OFFLOAD_MULTI_SEGS;
+  static constexpr uint32_t kOffloads = DEV_TX_OFFLOAD_MULTI_SEGS;
 
   /// Per-element size for the packet buffer memory pool
   static constexpr size_t kMbufSize =

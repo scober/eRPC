@@ -1,9 +1,11 @@
 #ifdef ERPC_DPDK
 
 #include "dpdk_transport.h"
+
 #include <iomanip>
 #include <set>
 #include <stdexcept>
+
 #include "dpdk_externs.h"
 #include "util/huge_alloc.h"
 #include "util/numautils.h"
@@ -202,13 +204,13 @@ void DpdkTransport::resolve_phy_port() {
     int link_get_ret = rte_eth_link_get(static_cast<uint8_t>(phy_port_), &link);
     rt_assert(link_get_ret == 0,
               "Bad DPDK link get with code " + std::to_string(link_get_ret));
-    rt_assert(link.link_status == RTE_ETH_LINK_UP,
+    rt_assert(link.link_status == ETH_LINK_UP,
               "Port " + std::to_string(phy_port_) + " is down.");
   } else {
     link = g_memzone->link_[phy_port_];
   }
 
-  if (link.link_speed != RTE_ETH_SPEED_NUM_NONE) {
+  if (link.link_speed != ETH_SPEED_NUM_NONE) {
     // link_speed is in Mbps. The 10 Gbps check below is just a sanity check.
     rt_assert(link.link_speed >= 10000, "Link too slow");
     resolve_.bandwidth_ =
