@@ -1,7 +1,10 @@
 #pragma once
 
+#include <iostream>
 #include <map>
+#include <ostream>
 #include <set>
+
 #include "cc/timing_wheel.h"
 #include "common.h"
 #include "msg_buffer.h"
@@ -172,7 +175,14 @@ class Rpc {
    */
   static inline void resize_msg_buffer(MsgBuffer *msg_buffer,
                                        size_t new_data_size) {
+#ifndef NDEBUG
+    if (new_data_size > msg_buffer->max_data_size_) {
+      std::cerr << "new data size: " << new_data_size << std::endl;
+      std::cerr << "max data size: " << msg_buffer->max_data_size_ << std::endl;
+    }
+
     assert(new_data_size <= msg_buffer->max_data_size_);
+#endif
 
     // Avoid division for single-packet data sizes
     size_t new_num_pkts = data_size_to_num_pkts(new_data_size);
@@ -207,7 +217,7 @@ class Rpc {
    * so it won't work in create_session.
    *
    * @param rem_rpc_id The ID of the remote Rpc object
-   * 
+   *
    * @note This function can be called only from the creator thread.
    */
   int create_session(std::string remote_uri, uint8_t rem_rpc_id) {
@@ -224,7 +234,7 @@ class Rpc {
    * @return 0 if the session disconnect packet was sent, and the disconnect
    * callback will be invoked later. Negative errno if the session cannot be
    * disconnected.
-   * 
+   *
    * @note This function can be called only from the creator thread.
    */
   int destroy_session(int session_num) {
@@ -310,7 +320,7 @@ class Rpc {
    *  packets
    *
    * This call returns immediately when there is no work to be done.
-   * 
+   *
    * @note This function can be called only from the creator thread.
    */
   inline void run_event_loop_once() { run_event_loop_do_one_st(); }
