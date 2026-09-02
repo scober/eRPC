@@ -10,6 +10,19 @@
 #include "util/huge_alloc.h"
 #include "util/numautils.h"
 
+namespace {
+std::string build_socket_mem_arg(size_t numa_node) {
+  std::string arg;
+
+  for (size_t i = 0; i < numa_node; ++i) {
+    arg += "0,";
+  }
+  arg += "1024";
+
+  return arg;
+}
+}  // namespace
+
 namespace erpc {
 
 constexpr size_t DpdkTransport::kMaxDataPerPkt;
@@ -43,19 +56,28 @@ DpdkTransport::DpdkTransport(uint16_t sm_udp_port, uint8_t rpc_id,
     } else {
       ERPC_INFO("DPDK transport for Rpc %u initializing DPDK EAL.\n", rpc_id);
 
-      // clang-format off
-      const char *rte_argv[] = {
-          "-c",            "0x0",
-          "-n",            "6",  // Memory channels
-          "-m",            "1024", // Max memory in megabytes
-          "--proc-type",   "auto",
-          "--log-level",   (ERPC_LOG_LEVEL >= ERPC_LOG_LEVEL_INFO) ? "8" : "1",
-          nullptr};
-      // clang-format on
+      // this vector owns the memory so that it outlives the call to
+      //   rte_eal_init without being statically allocated
+      std::vector<std::string> args{
+          "-c",
+          "0x0",
+          "-n",
+          "6",  // Memory channels
+          "--socket-mem",
+          build_socket_mem_arg(numa_node),
+          "--proc-type",
+          "auto",
+          "--log-level",
+          (ERPC_LOG_LEVEL >= ERPC_LOG_LEVEL_INFO) ? "8" : "1",
+      };
 
-      const int rte_argc =
-          static_cast<int>(sizeof(rte_argv) / sizeof(rte_argv[0])) - 1;
-      int ret = rte_eal_init(rte_argc, const_cast<char **>(rte_argv));
+      std::vector<char *> argv;
+      for (std::string &arg : args) {
+        argv.push_back(&arg[0]);
+      }
+      argv.push_back(nullptr);
+
+      int ret = rte_eal_init(static_cast<int>(args.size()), argv.data());
       rt_assert(ret >= 0, "Failed to initialize DPDK");
 
       // rte_eal_init() sets process core affinity to only core #0, undo this
