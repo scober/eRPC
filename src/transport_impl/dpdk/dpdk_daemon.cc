@@ -36,26 +36,26 @@ int main(int argc, char **argv) {
 
   // this vector owns the memory so that it outlives the call to
   //   rte_eal_init without being statically allocated
-  std::vector<std::string> args{
+  std::vector<std::string> rte_args{
       "-c",
       "0x0",
       "-n",
       "6",  // Memory channels
       "--socket-mem",
-      build_socket_mem_arg(numa_node),
+      build_socket_mem_arg(FLAGS_numa_node),
       "--proc-type",
       "auto",
       "--log-level",
       (ERPC_LOG_LEVEL >= ERPC_LOG_LEVEL_INFO) ? "8" : "1",
   };
 
-  std::vector<char *> argv;
-  for (std::string &arg : args) {
-    argv.push_back(&arg[0]);
+  std::vector<char *> rte_argv;
+  for (std::string &arg : rte_args) {
+    rte_argv.push_back(&arg[0]);
   }
-  argv.push_back(nullptr);
+  rte_argv.push_back(nullptr);
 
-  int ret = rte_eal_init(static_cast<int>(args.size()), argv.data());
+  int ret = rte_eal_init(static_cast<int>(rte_args.size()), rte_argv.data());
   if (ret < 0) {
     fprintf(stderr,
             "eRPC DPDK daemon: Failed to initialize DPDK. Is another "
