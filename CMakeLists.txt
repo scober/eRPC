@@ -321,6 +321,9 @@ endif()
 
 # Compile the library
 add_library(erpc ${SOURCES})
+if(TRANSPORT STREQUAL "infiniband")
+  target_link_libraries(erpc PUBLIC "${IBVERBS_LIB}")
+endif()
 target_include_directories(erpc PUBLIC
                                 ${PROJECT_SOURCE_DIR}/src
                                 ${PROJECT_BINARY_DIR}/src)
