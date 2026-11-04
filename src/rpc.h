@@ -441,6 +441,12 @@ class Rpc {
     return dpath_stats_.pkts_tx_ * 1.0 / dpath_stats_.tx_burst_calls_;
   }
 
+  /// would an enqueue operation go to the queue at this time?
+  bool request_window_full(int session_num) const {
+    return session_vec_[static_cast<size_t>(session_num)]
+               ->client_info_.sslot_free_vec_.size() == 0;
+  }
+
   /// Reset all datapath stats to zero
   void reset_dpath_stats() {
     memset(reinterpret_cast<void *>(&dpath_stats_), 0, sizeof(dpath_stats_));
