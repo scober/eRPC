@@ -42,7 +42,7 @@ static constexpr size_t kMaxNumaNodes = 8;
  * @relates Rpc
  * @brief Maximum number of background threads per process
  */
-static constexpr size_t kMaxBgThreads = 48;
+static constexpr size_t kMaxBgThreads = 96;
 
 /**
  * @relates Rpc
