@@ -8,8 +8,8 @@ namespace erpc {
 // background threads' queue of enqueue_request calls.
 template <class TTr>
 void Rpc<TTr>::enqueue_request(int session_num, uint8_t req_type,
-                               MsgBuffer *req_msgbuf, MsgBuffer *resp_msgbuf,
-                               erpc_cont_func_t cont_func, void *tag,
+                               MsgBuffer* req_msgbuf, MsgBuffer* resp_msgbuf,
+                               erpc_cont_func_t cont_func, void* tag,
                                size_t cont_etid) {
   // When called from a background thread, enqueue to the foreground thread
   if (unlikely(!in_dispatch())) {
@@ -20,7 +20,7 @@ void Rpc<TTr>::enqueue_request(int session_num, uint8_t req_type,
   }
 
   // If we're here, we're in the dispatch thread
-  Session *session = session_vec_[static_cast<size_t>(session_num)];
+  Session* session = session_vec_[static_cast<size_t>(session_num)];
   assert(session->is_connected());  // User is notified before we disconnect
 
   // If a free sslot is unavailable, save to session backlog
@@ -33,12 +33,12 @@ void Rpc<TTr>::enqueue_request(int session_num, uint8_t req_type,
 
   // Fill in the sslot info
   size_t sslot_i = session->client_info_.sslot_free_vec_.pop_back();
-  SSlot &sslot = session->sslot_arr_[sslot_i];
+  SSlot& sslot = session->sslot_arr_[sslot_i];
   assert(sslot.tx_msgbuf_ == nullptr);  // Previous response was received
   sslot.tx_msgbuf_ = req_msgbuf;        // Mark the request as active/incomplete
   sslot.cur_req_num_ += kSessionReqWindow;  // Move to next request
 
-  auto &ci = sslot.client_info_;
+  auto& ci = sslot.client_info_;
   ci.resp_msgbuf_ = resp_msgbuf;
   ci.cont_func_ = cont_func;
   ci.tag_ = tag;
@@ -50,7 +50,7 @@ void Rpc<TTr>::enqueue_request(int session_num, uint8_t req_type,
   ci.cont_etid_ = cont_etid;
 
   // Fill in packet 0's header
-  pkthdr_t *pkthdr_0 = req_msgbuf->get_pkthdr_0();
+  pkthdr_t* pkthdr_0 = req_msgbuf->get_pkthdr_0();
   pkthdr_0->req_type_ = req_type;
   pkthdr_0->msg_size_ = req_msgbuf->data_size_;
   pkthdr_0->dest_session_num_ = session->remote_session_num_;
@@ -61,7 +61,7 @@ void Rpc<TTr>::enqueue_request(int session_num, uint8_t req_type,
   // Fill in any non-zeroth packet headers, using pkthdr_0 as the base.
   if (unlikely(req_msgbuf->num_pkts_ > 1)) {
     for (size_t i = 1; i < req_msgbuf->num_pkts_; i++) {
-      pkthdr_t *pkthdr_i = req_msgbuf->get_pkthdr_n(i);
+      pkthdr_t* pkthdr_i = req_msgbuf->get_pkthdr_n(i);
       memcpy(pkthdr_i, pkthdr_0, sizeof(pkthdr_t));
       pkthdr_i->pkt_num_ = i;
     }
@@ -75,7 +75,7 @@ void Rpc<TTr>::enqueue_request(int session_num, uint8_t req_type,
 }
 
 template <class TTr>
-void Rpc<TTr>::process_small_req_st(SSlot *sslot, pkthdr_t *pkthdr) {
+void Rpc<TTr>::process_small_req_st(SSlot* sslot, pkthdr_t* pkthdr) {
   assert(in_dispatch());
 
   // Handle reordering
@@ -110,7 +110,7 @@ void Rpc<TTr>::process_small_req_st(SSlot *sslot, pkthdr_t *pkthdr) {
   // If we're here, this is the first (and only) packet of this new request
   assert(pkthdr->req_num_ == sslot->cur_req_num_ + kSessionReqWindow);
 
-  auto &req_msgbuf = sslot->server_info_.req_msgbuf_;
+  auto& req_msgbuf = sslot->server_info_.req_msgbuf_;
   assert(req_msgbuf.is_buried());  // Buried on prev req's enqueue_response()
 
   // Bury the previous, possibly dynamic response (sslot->tx_msgbuf). This marks
@@ -121,7 +121,7 @@ void Rpc<TTr>::process_small_req_st(SSlot *sslot, pkthdr_t *pkthdr) {
   sslot->cur_req_num_ = pkthdr->req_num_;
   sslot->server_info_.num_rx_ = 1;
 
-  const ReqFunc &req_func = req_func_arr_[pkthdr->req_type_];
+  const ReqFunc& req_func = req_func_arr_[pkthdr->req_type_];
 
   // Remember request metadata for enqueue_response(). req_type was invalidated
   // on previous enqueue_response(). Setting it implies that an enqueue_resp()
@@ -130,6 +130,7 @@ void Rpc<TTr>::process_small_req_st(SSlot *sslot, pkthdr_t *pkthdr) {
   sslot->server_info_.req_type_ = pkthdr->req_type_;
   sslot->server_info_.req_func_type_ = req_func.req_func_type_;
 
+  requests_processed_last_event_loop++;
   if (likely(!req_func.is_background())) {
     if (kZeroCopyRX) {
       // For foreground request handlers, a "fake" static request msgbuf
@@ -140,7 +141,7 @@ void Rpc<TTr>::process_small_req_st(SSlot *sslot, pkthdr_t *pkthdr) {
       req_msgbuf = alloc_msg_buffer(pkthdr->msg_size_);
       memcpy(req_msgbuf.buf_, pkthdr + 1, pkthdr->msg_size_);  // Omit header
     }
-    req_func.req_func_(static_cast<ReqHandle *>(sslot), context_);
+    req_func.req_func_(static_cast<ReqHandle*>(sslot), context_);
     return;
   } else {
     // Background request handlers need an RX ring--independent request copy
@@ -152,7 +153,7 @@ void Rpc<TTr>::process_small_req_st(SSlot *sslot, pkthdr_t *pkthdr) {
 }
 
 template <class TTr>
-void Rpc<TTr>::process_large_req_one_st(SSlot *sslot, const pkthdr_t *pkthdr) {
+void Rpc<TTr>::process_large_req_one_st(SSlot* sslot, const pkthdr_t* pkthdr) {
   assert(in_dispatch());
 
   // Handle reordering
@@ -205,7 +206,7 @@ void Rpc<TTr>::process_large_req_one_st(SSlot *sslot, const pkthdr_t *pkthdr) {
     return;
   }
 
-  MsgBuffer &req_msgbuf = sslot->server_info_.req_msgbuf_;
+  MsgBuffer& req_msgbuf = sslot->server_info_.req_msgbuf_;
 
   // Allocate or locate the request MsgBuffer
   if (pkthdr->pkt_num_ == 0) {
@@ -237,7 +238,7 @@ void Rpc<TTr>::process_large_req_one_st(SSlot *sslot, const pkthdr_t *pkthdr) {
   // Invoke the request handler iff we have all the request packets
   if (sslot->server_info_.num_rx_ != req_msgbuf.num_pkts_) return;
 
-  const ReqFunc &req_func = req_func_arr_[pkthdr->req_type_];
+  const ReqFunc& req_func = req_func_arr_[pkthdr->req_type_];
 
   // Remember request metadata for enqueue_response(). req_type was invalidated
   // on previous enqueue_response(). Setting it implies that an enqueue_resp()
@@ -248,10 +249,12 @@ void Rpc<TTr>::process_large_req_one_st(SSlot *sslot, const pkthdr_t *pkthdr) {
 
   // req_msgbuf here is independent of the RX ring, so don't make another copy
   if (likely(!req_func.is_background())) {
-    req_func.req_func_(static_cast<ReqHandle *>(sslot), context_);
+    req_func.req_func_(static_cast<ReqHandle*>(sslot), context_);
   } else {
     submit_bg_req_st(sslot);
   }
+
+  requests_processed_last_event_loop++;
 }
 
 FORCE_COMPILE_TRANSPORTS

@@ -6,6 +6,7 @@ template <class TTr>
 void Rpc<TTr>::run_event_loop_do_one_st() {
   assert(in_dispatch());
   dpath_stat_inc(dpath_stats_.ev_loop_calls_, 1);
+  requests_processed_last_event_loop = 0;
 
   // Handle any new session management packets
   if (unlikely(nexus_hook_.sm_rx_queue_.size_ > 0)) handle_sm_rx_st();
