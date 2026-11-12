@@ -13,10 +13,10 @@ void Rpc<TTr>::process_comps_st() {
   dpath_stat_inc(dpath_stats_.pkts_rx_, num_pkts);
 
   // ev_loop_tsc was taken just before calling the packet RX code
-  const size_t &batch_rx_tsc = ev_loop_tsc_;
+  const size_t& batch_rx_tsc = ev_loop_tsc_;
 
   for (size_t i = 0; i < num_pkts; i++) {
-    auto *pkthdr = reinterpret_cast<pkthdr_t *>(rx_ring_[rx_ring_head_]);
+    auto* pkthdr = reinterpret_cast<pkthdr_t*>(rx_ring_[rx_ring_head_]);
     rx_ring_head_ = (rx_ring_head_ + 1) % Transport::kNumRxRingEntries;
 
     // XXX: This acts as a stopgap function to filter non-eRPC packets, like
@@ -39,7 +39,7 @@ void Rpc<TTr>::process_comps_st() {
       continue;
     }
 
-    Session *session = session_vec_[pkthdr->dest_session_num_];
+    Session* session = session_vec_[pkthdr->dest_session_num_];
     if (unlikely(session == nullptr)) {
       ERPC_WARN("Rpc %u: Received %s for buried session. Dropping.\n", rpc_id_,
                 pkthdr->to_string().c_str());
@@ -60,7 +60,7 @@ void Rpc<TTr>::process_comps_st() {
         session->get_remote_hostname().c_str(), pkthdr->to_string().c_str());
 
     const size_t sslot_i = pkthdr->req_num_ % kSessionReqWindow;  // Bit shift
-    SSlot *sslot = &session->sslot_arr_[sslot_i];
+    SSlot* sslot = &session->sslot_arr_[sslot_i];
 
     switch (pkthdr->pkt_type_) {
       case PktType::kReq:
@@ -91,24 +91,30 @@ void Rpc<TTr>::process_comps_st() {
 }
 
 template <class TTr>
-void Rpc<TTr>::submit_bg_req_st(SSlot *sslot) {
+void Rpc<TTr>::submit_bg_req_st(SSlot* sslot) {
   assert(in_dispatch());
   assert(nexus_->num_bg_threads_ > 0);
 
-  const size_t bg_etid = fast_rand_.next_u32() % nexus_->num_bg_threads_;
-  auto *req_queue = nexus_hook_.bg_req_queue_arr_[bg_etid];
+  // behold, the power of two choices
+  const size_t bg_etid_1 = fast_rand_.next_u32() % nexus_->num_bg_threads_;
+  const size_t bg_etid_2 = fast_rand_.next_u32() % nexus_->num_bg_threads_;
+  const size_t queue_size_1 = nexus_hook_.bg_req_queue_arr_[bg_etid_1]->size_;
+  const size_t queue_size_2 = nexus_hook_.bg_req_queue_arr_[bg_etid_2]->size_;
+  auto* req_queue = queue_size_1 < queue_size_2
+                        ? nexus_hook_.bg_req_queue_arr_[bg_etid_1]
+                        : nexus_hook_.bg_req_queue_arr_[bg_etid_2];
 
   req_queue->unlocked_push(Nexus::BgWorkItem::make_req_item(context_, sslot));
 }
 
 template <class TTr>
-void Rpc<TTr>::submit_bg_resp_st(erpc_cont_func_t cont_func, void *tag,
+void Rpc<TTr>::submit_bg_resp_st(erpc_cont_func_t cont_func, void* tag,
                                  size_t bg_etid) {
   assert(in_dispatch());
   assert(nexus_->num_bg_threads_ > 0);
   assert(bg_etid < nexus_->num_bg_threads_);
 
-  auto *req_queue = nexus_hook_.bg_req_queue_arr_[bg_etid];
+  auto* req_queue = nexus_hook_.bg_req_queue_arr_[bg_etid];
   req_queue->unlocked_push(
       Nexus::BgWorkItem::make_resp_item(context_, cont_func, tag));
 }
