@@ -1117,6 +1117,14 @@ class Rpc {
 
   size_t requests_processed_last_event_loop;
 
+  size_t max_bg_queue_depth() {
+    volatile size_t max = 0;
+    for (size_t i = 0; i < nexus_->num_bg_threads_; i++) {
+      max = std::max(max, nexus_hook_.bg_req_queue_arr_[i]->size_);
+    }
+    return max;
+  }
+
   /// Size of the preallocated response buffer. This is one packet by default,
   /// but some applications might benefit from a larger preallocated buffer,
   /// at the expense of increased memory utilization.
