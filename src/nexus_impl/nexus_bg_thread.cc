@@ -1,9 +1,9 @@
 #include "common.h"
 #include "nexus.h"
+#include "req_handle.h"
 #include "rpc_types.h"
 #include "session.h"
 #include "util/mt_queue.h"
-#include "req_handle.h"
 
 namespace erpc {
 
@@ -23,17 +23,19 @@ void Nexus::bg_thread_func(BgThreadCtx ctx) {
     }
 
     while (ctx.bg_req_queue_->size_ > 0) {
-      BgWorkItem wi = ctx.bg_req_queue_->unlocked_pop();
+      const BgWorkItem& wi = ctx.bg_req_queue_->front();
 
       if (wi.is_req()) {
-        SSlot *s = wi.sslot_;  // For requests, we have a valid sslot
+        SSlot* s = wi.sslot_;  // For requests, we have a valid sslot
         uint8_t req_type = s->server_info_.req_type_;
-        const ReqFunc &req_func = ctx.req_func_arr_->at(req_type);
-        req_func.req_func_(static_cast<ReqHandle *>(s), wi.context_);
+        const ReqFunc& req_func = ctx.req_func_arr_->at(req_type);
+        req_func.req_func_(static_cast<ReqHandle*>(s), wi.context_);
       } else {
         // For responses, we don't have a valid sslot
         wi.cont_func_(wi.context_, wi.tag_);
       }
+
+      ctx.bg_req_queue_->unlocked_pop();
     }
   }
 

@@ -9,10 +9,11 @@ namespace erpc {
 template <class TTr>
 void Rpc<TTr>::handle_sm_rx_st() {
   assert(in_dispatch());
-  MtQueue<SmWorkItem> &queue = nexus_hook_.sm_rx_queue_;
+  MtQueue<SmWorkItem>& queue = nexus_hook_.sm_rx_queue_;
 
   while (queue.size_ > 0) {
-    const SmWorkItem wi = queue.unlocked_pop();
+    SmWorkItem wi = queue.front();
+    queue.unlocked_pop();
     assert(!wi.is_reset());
 
     // Here, it's not a reset item, so we have a valid SM packet
@@ -39,7 +40,7 @@ void Rpc<TTr>::handle_sm_rx_st() {
 }
 
 template <class TTr>
-void Rpc<TTr>::bury_session_st(Session *session) {
+void Rpc<TTr>::bury_session_st(Session* session) {
   assert(in_dispatch());
 
   // Free session resources
@@ -48,7 +49,7 @@ void Rpc<TTr>::bury_session_st(Session *session) {
   // guaranteed to have been freed at this point?
 
   if (session->is_server()) {
-    for (const SSlot &sslot : session->sslot_arr_) {
+    for (const SSlot& sslot : session->sslot_arr_) {
       free_msg_buffer(sslot.pre_resp_msgbuf_);  // Prealloc buf is always valid
     }
   }
@@ -58,7 +59,7 @@ void Rpc<TTr>::bury_session_st(Session *session) {
 }
 
 template <class TTr>
-void Rpc<TTr>::sm_pkt_udp_tx_st(const SmPkt &sm_pkt) {
+void Rpc<TTr>::sm_pkt_udp_tx_st(const SmPkt& sm_pkt) {
   ERPC_INFO("Rpc %u: Sending packet %s.\n", rpc_id_,
             sm_pkt.to_string().c_str());
   const std::string rem_hostname =
@@ -71,7 +72,7 @@ void Rpc<TTr>::sm_pkt_udp_tx_st(const SmPkt &sm_pkt) {
 }
 
 template <class TTr>
-void Rpc<TTr>::send_sm_req_st(Session *session) {
+void Rpc<TTr>::send_sm_req_st(Session* session) {
   assert(in_dispatch());
 
   sm_pending_reqs_.insert(session->local_session_num_);  // Duplicates are fine

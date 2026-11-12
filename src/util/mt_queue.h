@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdlib.h>
+
 #include <mutex>
 #include <queue>
 
@@ -26,15 +27,30 @@ class MtQueue {
   }
 
   /// Get the first element from the queue. Caller need not grab the lock.
-  T unlocked_pop() {
+  // T unlocked_pop() {
+  //   lock();
+  //   T t = queue_.front();
+  //   queue_.pop();
+  //   memory_barrier();
+  //   size_--;
+  //   unlock();
+
+  //  return t;
+  //}
+
+  void unlocked_pop() {
     lock();
-    T t = queue_.front();
     queue_.pop();
     memory_barrier();
     size_--;
     unlock();
+  }
 
-    return t;
+  T& front() {
+    lock();
+    T& item = queue_.front();
+    unlock();
+    return item;
   }
 
  private:
