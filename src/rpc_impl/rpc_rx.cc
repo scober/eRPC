@@ -95,14 +95,21 @@ void Rpc<TTr>::submit_bg_req_st(SSlot* sslot) {
   assert(in_dispatch());
   assert(nexus_->num_bg_threads_ > 0);
 
-  // behold, the power of two choices
-  const size_t bg_etid_1 = fast_rand_.next_u32() % nexus_->num_bg_threads_;
-  const size_t bg_etid_2 = fast_rand_.next_u32() % nexus_->num_bg_threads_;
-  const size_t queue_size_1 = nexus_hook_.bg_req_queue_arr_[bg_etid_1]->size_;
-  const size_t queue_size_2 = nexus_hook_.bg_req_queue_arr_[bg_etid_2]->size_;
-  auto* req_queue = queue_size_1 < queue_size_2
-                        ? nexus_hook_.bg_req_queue_arr_[bg_etid_1]
-                        : nexus_hook_.bg_req_queue_arr_[bg_etid_2];
+  size_t first_bg_etid = fast_rand_.next_u32() % nexus_->num_bg_threads_;
+  size_t best_bg_etid = first_bg_etid;
+  size_t best_size = nexus_hook_.bg_req_queue_arr_[best_bg_etid]->size_;
+
+  for (size_t i = 0; i < nexus_->num_bg_threads_; ++i) {
+    if (best_size == 0) break;
+    size_t candidate = (first_bg_etid + i) % nexus_->num_bg_threads_;
+    size_t candidate_size = nexus_hook_.bg_req_queue_arr_[candidate]->size_;
+    if (candidate_size < best_size) {
+      best_bg_etid = candidate;
+      best_size = candidate_size;
+    }
+  }
+
+  auto* req_queue = nexus_hook_.bg_req_queue_arr_[best_bg_etid];
 
   req_queue->unlocked_push(Nexus::BgWorkItem::make_req_item(context_, sslot));
 }
